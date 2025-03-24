@@ -1,0 +1,77 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    container_name: ${CONTAINER_PREFIX}__php
+    restart: unless-stopped
+    volumes:
+      - ./:/srv/app:rw
+      - ./docker/php/conf.d/app.ini:/usr/local/etc/php/conf.d/app.ini:rw
+      - php_data:/var/run/php
+    depends_on:
+      - database
+
+  supervisord:
+    build:
+      context: .
+      dockerfile: ./docker/supervisord/Dockerfile
+    container_name: ${CONTAINER_PREFIX}__supervisord
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - ./:/srv/app
+      - ./docker/supervisord/conf.d:/etc/supervisor/conf.d:rw
+      - ./docker/php/conf.d/app.ini:/usr/local/etc/php/conf.d/app.ini:rw
+    environment:
+      - TZ="Europe/Moscow"
+      - APP_DIR=/srv/app
+      - SUPERVISOR_USERNAME=${SUPERVISOR_USERNAME}
+      - SUPERVISOR_PASSWORD=${SUPERVISOR_PASSWORD}
+      - SUPERVISOR_PORT=${SUPERVISOR_PORT}
+      - ASYNC_TRANSPORT_NAME=async
+      - ASYNC_TRANSPORT_PROCESS_COUNT=1
+    ports:
+      - ${SUPERVISOR_PORT}:9001
+    depends_on:
+      - php
+      - database
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./docker/nginx/Dockerfile
+    container_name: ${CONTAINER_PREFIX}__nginx
+    restart: unless-stopped
+    ports:
+      - ${NGINX_PUBLISHED_PORT}:80
+    volumes:
+      - ./:/srv/app:rw
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - php_data:/var/run/php
+      - ./var/log/nginx:/var/log/nginx
+    environment:
+      - PHP_CONTAINER_NAME=${CONTAINER_PREFIX}__php
+    depends_on:
+      - php
+
+  database:
+    build:
+      context: .
+      dockerfile: ./docker/mysql/Dockerfile
+    container_name: ${CONTAINER_PREFIX}__database
+    restart: unless-stopped
+    ports:
+      - ${MYSQL_PUBLISH_PORT}:3306
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - database_data:/var/lib/mysql:rw
+
+volumes:
+  php_data:
+  database_data:
+

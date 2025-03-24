@@ -1,0 +1,5 @@
+nelmio_api_doc:
+    documentation:
+        paths:
+            - resource: '%kernel.project_dir%/doc/http/v1.yaml'
+              type: 'yaml'
